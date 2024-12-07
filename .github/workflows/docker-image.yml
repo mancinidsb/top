@@ -1,0 +1,48 @@
+name: Testar com Docker Compose
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build_and_test:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Check out the repository
+      uses: actions/checkout@v2
+
+    - name: Set up Docker
+      uses: docker/setup-buildx-action@v2
+    - name: Install Docker Compose
+      run: |
+          sudo curl -L "https://github.com/docker/compose/releases/download/v2.3.3/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+          sudo chmod +x /usr/local/bin/docker-compose
+          docker-compose --version
+          pip install coverage coveralls
+      continue-on-error: false
+
+    - name: Build and run Docker Compose (db)
+      run: |
+        docker-compose -f docker-compose.yml up -d db
+    - name: Build and run Docker Compose (backend)
+      run: |
+        docker-compose -f docker-compose.yml up -d backend
+    - name: Run tests inside the container
+      run: |
+        #docker-compose exec backend bash -c "git config --global --add safe.directory /backend"
+        #cd backend/app; python manage.py test
+        #python /backend/app/manage.py test app
+        docker ps
+        #docker compose exec backend sh -c "cd backend/app;coverage run --branch manage.py test app;coverage xml;pwd;ls;coveralls --service=github"
+        docker exec top-backend-1 sh -c "git config --global --add safe.directory /backend; coverage run --source=backend/app/api --branch backend/app/manage.py test app;coverage xml;ls -a; coveralls"
+        #docker exec testeworkflow-backend-1 sh -c "coverage run --source=backend/app/api --branch backend/app/manage.py test app"
+        
+        
+    - name: Shut down Docker Compose
+      run: docker-compose down
+
